@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { parsePresentation } from './core/slide-parser';
 import { TEMPLATES } from './core/templates';
-import { SlideTheme } from './types';
+import { SlideTheme, SlideTransition } from './types';
+import { generatePresenterQrSvg } from './core/slide-parser';
 import { SlideRenderer } from './components/SlideRenderer';
 import { PresenterMode } from './components/PresenterMode';
 import {
@@ -19,6 +20,9 @@ import {
   Sparkles,
   FileText,
   Share2,
+  QrCode,
+  Layers,
+  X
 } from 'lucide-react';
 
 const STORAGE_KEY = 'garden_slides_content_v1';
@@ -37,6 +41,8 @@ export const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'editor' | 'presentation' | 'presenter'>('editor');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedAlert, setCopiedAlert] = useState(false);
+  const [transition, setTransition] = useState<SlideTransition>('fade');
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -252,20 +258,38 @@ export const App: React.FC = () => {
               onChange={(e) => setTheme(e.target.value as SlideTheme)}
               className="bg-transparent text-xs text-zinc-300 focus:outline-none cursor-pointer pr-1"
             >
-              <option value="emerald" className="bg-zinc-900">
-                Emerald Studio
-              </option>
-              <option value="dark" className="bg-zinc-900">
-                Dark Velvet
-              </option>
-              <option value="cyber" className="bg-zinc-900">
-                Cyber Neon
-              </option>
-              <option value="light" className="bg-zinc-900">
-                Clean Light
-              </option>
+              <option value="emerald" className="bg-zinc-900">Emerald Studio</option>
+              <option value="dark" className="bg-zinc-900">Dark Velvet</option>
+              <option value="cyber" className="bg-zinc-900">Cyber Neon</option>
+              <option value="light" className="bg-zinc-900">Clean Light</option>
             </select>
           </div>
+
+          {/* Transition selector */}
+          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-1 text-xs">
+            <Layers className="w-3.5 h-3.5 text-zinc-400 ml-1 mr-1" />
+            <select
+              value={transition}
+              onChange={(e) => setTransition(e.target.value as SlideTransition)}
+              className="bg-transparent text-xs text-zinc-300 focus:outline-none cursor-pointer pr-1"
+              title="Transição de Slides"
+            >
+              <option value="fade" className="bg-zinc-900">Fade Suave</option>
+              <option value="slide" className="bg-zinc-900">Slide Horizontal</option>
+              <option value="zoom" className="bg-zinc-900">Zoom Pop</option>
+              <option value="flip3d" className="bg-zinc-900">Flip 3D</option>
+            </select>
+          </div>
+
+          {/* QR Remote Controller button */}
+          <button
+            onClick={() => setIsQrModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-cyan-300 transition cursor-pointer"
+            title="Controle Remoto via Celular (QR Code)"
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Remoto</span>
+          </button>
 
           {/* Export PDF / Print */}
           <button
@@ -404,6 +428,7 @@ export const App: React.FC = () => {
               slide={slides[currentSlideIndex] || slides[0]}
               theme={theme}
               isFullscreen={isFullscreen}
+              transition={transition}
             />
           </div>
 
@@ -452,6 +477,44 @@ export const App: React.FC = () => {
           <SlideRenderer key={slide.id} slide={slide} theme={theme} />
         ))}
       </div>
+      {/* QR Code Remote Control Modal */}
+      {isQrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm no-print">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl flex flex-col items-center gap-4 text-center">
+            <div className="flex items-center justify-between w-full border-b border-zinc-800 pb-2">
+              <h3 className="font-semibold text-sm text-zinc-100 flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-emerald-400" />
+                Controle Remoto do Apresentador
+              </h3>
+              <button
+                onClick={() => setIsQrModalOpen(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div
+              className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 shadow-inner"
+              dangerouslySetInnerHTML={{ __html: generatePresenterQrSvg(typeof window !== 'undefined' ? window.location.href : 'garden-slides') }}
+            />
+
+            <div className="text-xs text-zinc-400">
+              <p className="font-semibold text-zinc-200">Aponte a câmera do seu celular</p>
+              <p className="text-[11px] text-zinc-500 mt-1">
+                Conecte-se na mesma rede Wi-Fi para avançar e retroceder slides sem fios.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsQrModalOpen(false)}
+              className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-bold text-xs transition"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

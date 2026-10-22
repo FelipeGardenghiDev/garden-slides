@@ -1,16 +1,19 @@
 import React from 'react';
-import { SlideData, SlideTheme } from '../types';
+import { SlideData, SlideTheme, SlideTransition } from '../types';
+import { getTransitionCssClass } from '../core/slide-parser';
 
 interface SlideRendererProps {
   slide: SlideData;
   theme: SlideTheme;
   isFullscreen?: boolean;
+  transition?: SlideTransition;
 }
 
 export const SlideRenderer: React.FC<SlideRendererProps> = ({
   slide,
   theme,
   isFullscreen = false,
+  transition = 'fade',
 }) => {
   const getThemeClasses = () => {
     switch (theme) {
@@ -227,7 +230,7 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
 
   return (
     <div
-      className={`print-slide w-full h-full flex flex-col justify-between p-8 md:p-12 transition-all duration-300 select-none ${getThemeClasses()} ${
+      className={`print-slide w-full h-full flex flex-col justify-between p-8 md:p-12 select-none ${getThemeClasses()} ${getTransitionCssClass(transition)} ${
         isFullscreen ? 'rounded-none' : 'rounded-2xl border'
       }`}
     >

@@ -1,4 +1,4 @@
-import { SlideData } from '../types';
+import { SlideData, SlideTransition } from '../types';
 
 /**
  * Parses raw markdown presentations separated by '---' delimiters.
@@ -59,34 +59,33 @@ export function parsePresentation(rawMarkdown: string): SlideData[] {
       }
     }
 
-    // Extract badge tag if present: [badge: High Performance]
+    // Extract badge [badge: Texto]
     let headerBadge: string | undefined;
-    const badgeMatch = body.match(/\[badge:\s*([^\]]+)\]/i);
+    const badgeMatch = body.match(/\[badge:\s*(.*?)\]/i);
     if (badgeMatch) {
       headerBadge = badgeMatch[1].trim();
-      body = body.replace(/\[badge:\s*[^\]]+\]/gi, '').trim();
+      body = body.replace(/\[badge:\s*.*?\]/gi, '').trim();
     }
 
-    // Extract slide title
+    // Extract title (first line starting with # or ##)
     let title = `Slide ${index + 1}`;
     let subtitle: string | undefined;
 
-    const titleMatch = body.match(/^#\s+(.+)$/m);
-    if (titleMatch) {
-      title = titleMatch[1].trim();
-    } else {
-      const h2Match = body.match(/^##\s+(.+)$/m);
-      if (h2Match) {
-        title = h2Match[1].trim();
+    const lines = body.split('\n').map((l) => l.trim());
+    const headingIndex = lines.findIndex((l) => l.startsWith('#'));
+
+    if (headingIndex !== -1) {
+      const headingLine = lines[headingIndex];
+      title = headingLine.replace(/^#+\s*/, '').trim();
+
+      // Check if next non-empty line is a subtitle
+      const nextLine = lines[headingIndex + 1];
+      if (nextLine && !nextLine.startsWith('#') && !nextLine.startsWith('-') && !nextLine.startsWith('```')) {
+        subtitle = nextLine;
       }
     }
 
-    const subMatch = body.match(/^##\s+(.+)$/m);
-    if (subMatch && subMatch[1] !== title) {
-      subtitle = subMatch[1].trim();
-    }
-
-    // Layout detection
+    // Infer layout type
     let layout: SlideData['layout'] = 'default';
 
     if (body.includes('|||')) {
@@ -110,4 +109,45 @@ export function parsePresentation(rawMarkdown: string): SlideData[] {
       headerBadge,
     };
   });
+}
+
+export function getTransitionCssClass(transition: SlideTransition): string {
+  switch (transition) {
+    case 'slide':
+      return 'transition-all duration-300 ease-out transform translate-x-0';
+    case 'zoom':
+      return 'transition-all duration-300 ease-out transform scale-100';
+    case 'flip3d':
+      return 'transition-all duration-500 ease-in-out transform-gpu perspective-1000 rotate-y-0';
+    case 'fade':
+    default:
+      return 'transition-opacity duration-300 ease-in-out opacity-100';
+  }
+}
+
+/**
+ * Generates an accessible, clean SVG QR-style pairing pattern for remote control
+ */
+export function generatePresenterQrSvg(url: string, size = 160): string {
+  const hash = url.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) | 0, 0);
+  const cells = 7;
+  const cellSize = Math.floor(size / cells);
+
+  let rects = '';
+  for (let r = 0; r < cells; r++) {
+    for (let c = 0; c < cells; c++) {
+      // Keep corner positioning squares like standard QR codes
+      const isCornerSquare =
+        (r < 2 && c < 2) ||
+        (r < 2 && c >= cells - 2) ||
+        (r >= cells - 2 && c < 2);
+
+      const isBitActive = isCornerSquare || (((hash >> (r * cells + c)) & 1) === 1);
+      if (isBitActive) {
+        rects += `<rect x="${c * cellSize}" y="${r * cellSize}" width="${cellSize - 2}" height="${cellSize - 2}" fill="#10b981" rx="2" />`;
+      }
+    }
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="${size}" height="${size}" fill="#18181b" rx="8" />${rects}</svg>`;
 }
